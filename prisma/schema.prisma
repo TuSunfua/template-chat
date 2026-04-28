@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// =======================
+// ENUMS
+// =======================
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// =======================
+// MODELS
+// =======================
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  username  String   @unique
+  password  String
+
+  // Relations
+  conversations ConversationParticipant[]
+  messages      Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================
+
+model Conversation {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  title   String?
+  isGroup Boolean @default(false)
+
+  // Relations
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+// =======================
+
+model ConversationParticipant {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  conversationId String   @db.ObjectId
+
+  user         User         @relation(fields: [userId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, conversationId])
+  @@index([conversationId])
+}
+
+// =======================
+
+model Message {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId String   @db.ObjectId
+  senderId       String   @db.ObjectId
+
+  metadata Json?
+  content String?
+  role MessageRole @default(USER)
+
+  // Soft delete
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation(fields: [senderId], references: [id])
+  attachments  Attachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+// =======================
+
+model Attachment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  messageId String   @db.ObjectId
+
+  url      String
+  fileName String
+  fileType String // image/png, application/pdf...
+  fileSize Int?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@index([messageId])
+}
